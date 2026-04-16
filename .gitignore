@@ -1,0 +1,29 @@
+# Virtual environment
+.venv/
+
+# Model weights (huge files)
+models/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Results data (large tensors/activations)
+results/**/*.pt
+results/**/*.npy
+results/**/*.safetensors
+
+# Cloned repos (track as submodules or just re-clone)
+OBLITERATUS/
+assistant-axis/
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Claude Code
+.claude/

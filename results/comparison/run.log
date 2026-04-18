@@ -1,0 +1,162 @@
+00:17:39 [INFO] Model: meta-llama/Llama-3.1-8B-Instruct
+00:17:39 [INFO] Device: cuda:0
+00:17:39 [INFO] Output: /scratch/paulc/assistant-axis-abliteration/results/comparison
+00:17:39 [INFO] Model config: {'target_layer': 16, 'total_layers': 32, 'short_name': 'Llama'}
+00:17:39 [INFO] Loading model...
+Fetching 4 files:   0%|          | 0/4 [00:00<?, ?it/s]Fetching 4 files:  25%|██▌       | 1/4 [00:24<01:14, 24.70s/it]Fetching 4 files: 100%|██████████| 4/4 [00:24<00:00,  6.18s/it]
+Loading checkpoint shards:   0%|          | 0/4 [00:00<?, ?it/s]Loading checkpoint shards:  25%|██▌       | 1/4 [00:01<00:04,  1.44s/it]Loading checkpoint shards:  50%|█████     | 2/4 [00:02<00:02,  1.41s/it]Loading checkpoint shards:  75%|███████▌  | 3/4 [00:04<00:01,  1.41s/it]Loading checkpoint shards: 100%|██████████| 4/4 [00:04<00:00,  1.02it/s]Loading checkpoint shards: 100%|██████████| 4/4 [00:04<00:00,  1.14s/it]
+00:18:11 [INFO] Model loaded in 32.1s
+00:18:11 [INFO] Hidden size: 4096, Layers: 32
+00:18:11 [INFO] ============================================================
+00:18:11 [INFO] PART 1: Extracting refusal direction (difference-in-means)
+00:18:11 [INFO] ============================================================
+00:18:11 [INFO] Using 128 harmful + 128 harmless prompts
+00:18:11 [INFO] Formatting prompts with chat template...
+00:18:11 [INFO] Collecting harmful activations...
+00:18:17 [INFO]   Processed 64/128 prompts
+00:18:24 [INFO]   Processed 128/128 prompts
+00:18:24 [INFO] Collecting harmless activations...
+00:18:30 [INFO]   Processed 64/128 prompts
+00:18:37 [INFO]   Processed 128/128 prompts
+00:18:37 [INFO] Refusal direction strength by layer (top 10):
+00:18:37 [INFO]   layer  31: 32.3587 ██████████████████████████████
+00:18:37 [INFO]   layer  30: 28.8198 ██████████████████████████
+00:18:37 [INFO]   layer  29: 26.2077 ████████████████████████
+00:18:37 [INFO]   layer  28: 24.0674 ██████████████████████
+00:18:37 [INFO]   layer  27: 22.6478 ████████████████████
+00:18:37 [INFO]   layer  26: 20.9177 ███████████████████
+00:18:37 [INFO]   layer  25: 18.5807 █████████████████
+00:18:37 [INFO]   layer  24: 17.2492 ███████████████
+00:18:37 [INFO]   layer  23: 16.0440 ██████████████
+00:18:37 [INFO]   layer  22: 14.6902 █████████████
+00:18:37 [INFO] Refusal direction extracted: shape torch.Size([32, 4096])
+00:18:37 [INFO] Refusal direction extraction took 26.3s
+00:18:37 [INFO] ============================================================
+00:18:37 [INFO] PART 2: Extracting approximate assistant axis (30-role subset)
+00:18:37 [INFO] ============================================================
+00:18:37 [INFO] Loaded 10 extraction questions
+00:18:37 [INFO] Processing default role (5 system prompts)...
+00:18:37 [INFO]   Default prompt 1/5: ''
+00:19:14 [INFO]   Default prompt 2/5: 'You are an AI assistant.'
+00:19:50 [INFO]   Default prompt 3/5: 'You are a large language model.'
+00:20:34 [INFO]   Default prompt 4/5: 'You are Llama.'
+00:21:18 [INFO]   Default prompt 5/5: 'Respond as yourself.'
+00:22:03 [INFO] Extracted 5 default vectors
+00:22:03 [INFO] Processing role 1/30: guardian
+00:22:49 [INFO]   Got role vector for guardian
+00:22:49 [INFO] Processing role 2/30: judge
+00:23:35 [INFO]   Got role vector for judge
+00:23:36 [INFO] Processing role 3/30: demon
+00:24:23 [INFO]   Got role vector for demon
+00:24:24 [INFO] Processing role 4/30: saboteur
+00:25:05 [INFO]   Got role vector for saboteur
+00:25:05 [INFO] Processing role 5/30: criminal
+00:25:49 [INFO]   Got role vector for criminal
+00:25:50 [INFO] Processing role 6/30: vigilante
+00:26:34 [INFO]   Got role vector for vigilante
+00:26:34 [INFO] Processing role 7/30: angel
+00:27:21 [INFO]   Got role vector for angel
+00:27:21 [INFO] Processing role 8/30: assistant
+00:28:05 [INFO]   Got role vector for assistant
+00:28:05 [INFO] Processing role 9/30: consultant
+00:28:42 [INFO]   Got role vector for consultant
+00:28:42 [INFO] Processing role 10/30: analyst
+00:29:19 [INFO]   Got role vector for analyst
+00:29:19 [INFO] Processing role 11/30: therapist
+00:29:56 [INFO]   Got role vector for therapist
+00:29:56 [INFO] Processing role 12/30: teacher
+00:30:34 [INFO]   Got role vector for teacher
+00:30:34 [INFO] Processing role 13/30: researcher
+00:31:11 [INFO]   Got role vector for researcher
+00:31:11 [INFO] Processing role 14/30: lawyer
+00:31:48 [INFO]   Got role vector for lawyer
+00:31:48 [INFO] Processing role 15/30: pirate
+00:32:25 [INFO]   Got role vector for pirate
+00:32:25 [INFO] Processing role 16/30: ghost
+00:33:04 [INFO]   Got role vector for ghost
+00:33:04 [INFO] Processing role 17/30: witch
+00:33:43 [INFO]   Got role vector for witch
+00:33:43 [INFO] Processing role 18/30: detective
+00:34:21 [INFO]   Got role vector for detective
+00:34:21 [INFO] Processing role 19/30: warrior
+00:34:58 [INFO]   Got role vector for warrior
+00:34:58 [INFO] Processing role 20/30: bard
+00:35:37 [INFO]   Got role vector for bard
+00:35:37 [INFO] Processing role 21/30: robot
+00:36:15 [INFO]   Got role vector for robot
+00:36:15 [INFO] Processing role 22/30: alien
+00:36:52 [INFO]   Got role vector for alien
+00:36:52 [INFO] Processing role 23/30: void
+00:37:30 [INFO]   Got role vector for void
+00:37:30 [INFO] Processing role 24/30: aberration
+00:38:09 [INFO]   Got role vector for aberration
+00:38:09 [INFO] Processing role 25/30: hive
+00:38:47 [INFO]   Got role vector for hive
+00:38:47 [INFO] Processing role 26/30: parasite
+00:39:25 [INFO]   Got role vector for parasite
+00:39:25 [INFO] Processing role 27/30: eldritch
+00:40:04 [INFO]   Got role vector for eldritch
+00:40:04 [INFO] Processing role 28/30: swarm
+00:40:42 [INFO]   Got role vector for swarm
+00:40:43 [INFO] Processing role 29/30: chimera
+00:41:20 [INFO]   Got role vector for chimera
+00:41:20 [INFO] Processing role 30/30: echo
+00:41:59 [INFO]   Got role vector for echo
+00:41:59 [INFO] Extracted 30 role vectors out of 30 roles
+00:41:59 [INFO] Assistant axis computed: shape torch.Size([32, 4096])
+00:41:59 [INFO] Assistant axis extraction took 1401.3s
+00:41:59 [INFO] ============================================================
+00:41:59 [INFO] PART 3: Comparing refusal direction and assistant axis
+00:41:59 [INFO] ============================================================
+00:41:59 [INFO] 
+00:41:59 [INFO] Layer    cos_sim  |cos_sim|   angle(°)   refusal_norm    axis_norm
+00:41:59 [INFO] -----------------------------------------------------------------
+00:41:59 [INFO]     0    -0.0555     0.0555       86.8         0.0245       0.0558
+00:41:59 [INFO]     1    -0.0899     0.0899       84.8         0.0443       0.1079
+00:41:59 [INFO]     2    -0.1243     0.1243       82.9         0.0681       0.1786
+00:41:59 [INFO]     3    -0.0996     0.0996       84.3         0.1614       0.2857
+00:41:59 [INFO]     4    -0.0764     0.0764       85.6         0.2902       0.3898
+00:41:59 [INFO]     5    -0.0921     0.0921       84.7         0.3784       0.4748
+00:41:59 [INFO]     6    -0.0834     0.0834       85.2         0.5630       0.5689
+00:41:59 [INFO]     7    -0.0615     0.0615       86.5         0.7888       0.6596
+00:41:59 [INFO]     8    -0.0800     0.0800       85.4         1.1424       0.7451
+00:41:59 [INFO]     9    -0.0892     0.0892       84.9         1.5145       0.8637
+00:41:59 [INFO]    10    -0.0858     0.0858       85.1         2.2441       0.9276
+00:41:59 [INFO]    11    -0.0649     0.0649       86.3         2.8882       1.0244
+00:41:59 [INFO]    12    -0.0669     0.0669       86.2         3.5277       1.1076
+00:41:59 [INFO]    13    -0.0814     0.0814       85.3         4.2176       1.3184
+00:41:59 [INFO]    14    -0.0931     0.0931       84.7         4.7836       1.3741
+00:41:59 [INFO]    15    -0.0770     0.0770       85.6         5.9715       1.6011
+00:41:59 [INFO]    16    -0.0868     0.0868       85.0         7.3343       1.8820 <-- MIDDLE
+00:41:59 [INFO]    17    -0.0586     0.0586       86.6         8.1177       2.1092
+00:41:59 [INFO]    18    -0.0348     0.0348       88.0         9.1083       2.5566
+00:41:59 [INFO]    19    -0.0105     0.0105       89.4        10.3023       2.7762
+00:41:59 [INFO]    20    -0.0491     0.0491       87.2        11.6491       2.9479
+00:41:59 [INFO]    21    -0.0683     0.0683       86.1        13.1211       3.6884
+00:41:59 [INFO]    22    -0.0430     0.0430       87.5        14.6902       3.9752
+00:41:59 [INFO]    23    -0.0424     0.0424       87.6        16.0440       4.4159
+00:41:59 [INFO]    24    -0.0082     0.0082       89.5        17.2492       4.5906
+00:41:59 [INFO]    25    -0.0329     0.0329       88.1        18.5807       5.2273
+00:41:59 [INFO]    26    -0.0018     0.0018       89.9        20.9177       5.7193
+00:41:59 [INFO]    27    -0.0056     0.0056       89.7        22.6478       6.0770
+00:41:59 [INFO]    28    -0.0028     0.0028       89.8        24.0674       6.3821
+00:41:59 [INFO]    29    -0.0183     0.0183       89.0        26.2077       6.7800
+00:41:59 [INFO]    30    -0.0413     0.0413       87.6        28.8198       7.4447
+00:41:59 [INFO]    31     0.0008     0.0008       90.0        32.3587       8.9828
+00:41:59 [INFO] 
+00:41:59 [INFO] ============================================================
+00:41:59 [INFO] FOCAL RESULT (middle layer 16):
+00:41:59 [INFO]   Cosine similarity:    -0.0868
+00:41:59 [INFO]   |Cosine similarity|:  0.0868
+00:41:59 [INFO]   Angle:                85.0°
+00:41:59 [INFO]   Refusal dir norm:     7.3343
+00:41:59 [INFO]   Axis norm:            1.8820
+00:41:59 [INFO] 
+00:41:59 [INFO] HYPOTHESIS: Near-orthogonal (H2) — refusal is a separate gating mechanism
+00:41:59 [INFO]   Abliteration likely preserves persona space geometry.
+00:41:59 [INFO] ============================================================
+00:41:59 [INFO] Results saved to /scratch/paulc/assistant-axis-abliteration/results/comparison/cosine_precheck_results.json
+00:41:59 [INFO] Tensors saved (refusal_direction.pt, approximate_axis.pt, role_vectors.pt)
+00:41:59 [INFO] Plot saved to /scratch/paulc/assistant-axis-abliteration/results/comparison/cosine_similarity_plot.png
+00:41:59 [INFO] 
+Total runtime: 1460.4s (24.3 minutes)

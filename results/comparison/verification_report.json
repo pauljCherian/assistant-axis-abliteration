@@ -1,0 +1,49 @@
+{
+  "random_baseline": {
+    "mean": 0.012409119866788387,
+    "std": 0.00930848065763712,
+    "p95": 0.030366666615009308,
+    "p99": 0.03994287550449371,
+    "z_score_observed": 9.329415737318163,
+    "verdict": "NON-ZERO"
+  },
+  "sign_consistency": {
+    "n_negative": 31,
+    "n_total": 32,
+    "p_value": 1.5366822481155396e-08,
+    "verdict": "SIGNIFICANT"
+  },
+  "refusal_norm_profile": {
+    "monotonic": true,
+    "n_decreases": 0,
+    "corr_layer_lognorm": 0.9461896837275386,
+    "verdict": "HEALTHY"
+  },
+  "pc1_check": {
+    "abs_cos_pc1_axis": 0.8992304801940918,
+    "abs_cos_pc1_refusal": 0.08695855736732483,
+    "var_ratios": [
+      0.35952919721603394,
+      0.15204182267189026,
+      0.09090790897607803,
+      0.05281345918774605,
+      0.04446971043944359,
+      0.03577161207795143,
+      0.03382338210940361,
+      0.025555120781064034,
+      0.024520257487893105,
+      0.021384626626968384
+    ],
+    "verdict": "GOOD proxy (|cos| > 0.5)"
+  },
+  "separability": {
+    "role_proj_min": -2.6634888648986816,
+    "role_proj_mean": -0.41634494066238403,
+    "role_proj_max": 1.5257056951522827,
+    "role_proj_std": 1.2231547832489014,
+    "default_proj": 1.4656503200531006,
+    "separation_sigma_all": 1.5386403135161304,
+    "separation_sigma_nonprofessional": 2.531996965408325,
+    "verdict": "weak separation"
+  }
+}

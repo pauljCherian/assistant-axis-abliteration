@@ -18,6 +18,9 @@ results/**/*.safetensors
 OBLITERATUS/
 assistant-axis/
 
+# Secrets
+.env
+
 # OS
 .DS_Store
 

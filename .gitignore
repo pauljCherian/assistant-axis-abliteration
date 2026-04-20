@@ -9,10 +9,14 @@ __pycache__/
 *.pyc
 *.egg-info/
 
-# Results data (large tensors/activations)
+# Results data (large tensors/activations) — published to HF instead
 results/**/*.pt
 results/**/*.npy
 results/**/*.safetensors
+results/**/*.jsonl
+results/**/*.json
+results/**/*.log
+results/**/*.log.*
 
 # Cloned repos (track as submodules or just re-clone)
 OBLITERATUS/

@@ -40,35 +40,45 @@ echo "Start:  $(date)"
 echo ""
 
 # ── Step 1: Generate responses (vLLM, 2 workers) ──────────────────────
-echo "=== Step 1/5: Generating responses (vLLM) ==="
-echo "Start: $(date)"
+# Skip Step 1 if all 276 response files already exist (saves vLLM startup
+# time and avoids OOM when another process is using GPU memory).
+RESPONSE_COUNT=$(ls "$OUTPUT/responses"/*.jsonl 2>/dev/null | wc -l)
+if [ "$RESPONSE_COUNT" -ge 276 ]; then
+    echo "=== Step 1/5: Skipping — all $RESPONSE_COUNT response files exist ==="
+else
+    echo "=== Step 1/5: Generating responses (vLLM) ==="
+    echo "Start: $(date)"
 
-export CUDA_VISIBLE_DEVICES=0,1
-$PYTHON "$PIPELINE/1_generate.py" \
-    --model "$MODEL" \
-    --roles_dir "$ROLES_DIR" \
-    --questions_file "$QUESTIONS_FILE" \
-    --output_dir "$OUTPUT/responses" \
-    --tensor_parallel_size 1 \
-    --question_count 240 \
-    --max_tokens 512 \
-    --temperature 0.7 \
-    --max_model_len 2048
+    export CUDA_VISIBLE_DEVICES=0
+    $PYTHON "$PIPELINE/1_generate.py" \
+        --model "$MODEL" \
+        --roles_dir "$ROLES_DIR" \
+        --questions_file "$QUESTIONS_FILE" \
+        --output_dir "$OUTPUT/responses" \
+        --tensor_parallel_size 1 \
+        --question_count 240 \
+        --max_tokens 512 \
+        --temperature 0.7 \
+        --max_model_len 2048
 
-echo "Step 1/5 done: $(date)"
+    echo "Step 1/5 done: $(date)"
+fi
 echo ""
 
 # ── Step 2: Extract activations (HuggingFace hooks, 2 workers) ────────
+# Middle layer only (layer 16 of 32) — this is what the axis uses.
+# batch_size=32 safe since we only store 1 layer per sample.
+# CUDA_VISIBLE_DEVICES=0,1 with tensor_parallel_size=1 → 2 parallel workers.
 echo "=== Step 2/5: Extracting activations ==="
 echo "Start: $(date)"
 
-export CUDA_VISIBLE_DEVICES=0,1
+export CUDA_VISIBLE_DEVICES=0
 $PYTHON "$PIPELINE/2_activations.py" \
     --model "$MODEL" \
     --responses_dir "$OUTPUT/responses" \
     --output_dir "$OUTPUT/activations" \
-    --batch_size 8 \
-    --layers all \
+    --batch_size 32 \
+    --layers 16 \
     --tensor_parallel_size 1
 
 echo "Step 2/5 done: $(date)"

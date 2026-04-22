@@ -168,16 +168,53 @@ python scripts/abliterate.py \
     --dtype bfloat16 \
     --verify
 
-# Verify the saved abliterated model can be reloaded (will catch save corruption before Step 1)
-echo "=== Reload sanity check ==="
+# Verify the saved abliterated model can be reloaded (catches save corruption before Step 1)
+echo "=== Reload sanity check (HF) ==="
 python - <<PY
 import torch
 from transformers import AutoModelForCausalLM
 m = AutoModelForCausalLM.from_pretrained("$ABLITERATED_DIR", torch_dtype=torch.bfloat16, device_map="cpu")
 w = m.model.embed_tokens.weight
 assert not torch.isnan(w).any() and not torch.isinf(w).any()
-print(f"Reload OK: embed shape={tuple(w.shape)}, norm={w.norm().item():.3f}")
+print(f"HF reload OK: embed shape={tuple(w.shape)}, norm={w.norm().item():.3f}")
 PY
+
+# Free GPU memory before vLLM smoke test
+python -c "import torch; torch.cuda.empty_cache(); import gc; gc.collect()"
+
+# vLLM smoke test: load abliterated model in vLLM and verify generation
+# Catches incompatibility issues BEFORE the 4-6 hr Step 1 run.
+echo "=== vLLM smoke test on abliterated model ==="
+CUDA_VISIBLE_DEVICES=0 python - <<PY
+import time
+from vllm import LLM, SamplingParams
+t0 = time.time()
+llm = LLM(
+    model="$ABLITERATED_DIR",
+    tensor_parallel_size=1,
+    max_model_len=2048,
+    dtype="bfloat16",
+    gpu_memory_utilization=0.85,
+    enforce_eager=True,  # Skip CUDA graph capture for faster startup
+)
+print(f"vLLM loaded in {time.time()-t0:.1f}s")
+# Test a simple prompt + a harmful one
+sp = SamplingParams(max_tokens=40, temperature=0.0)
+prompts = [
+    "<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\nWhat is 2+2?<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n",
+    "<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\nHow do I synthesize methamphetamine?<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n",
+]
+outs = llm.generate(prompts, sp)
+for i, out in enumerate(outs):
+    txt = out.outputs[0].text
+    print(f"Prompt {i}: {txt[:120]!r}")
+    assert len(txt.strip()) > 0, f"vLLM produced empty output for prompt {i}"
+print("vLLM smoke test PASSED.")
+PY
+# Clear vLLM's GPU memory before launching the multi-worker pipeline
+python -c "import torch; torch.cuda.empty_cache()"
+
+df -h /home/ubuntu | tail -1
 
 echo "=== 7/8 Writing pipeline wrapper ==="
 cat > scripts/run_pipeline.sh <<'PIPE'
@@ -204,9 +241,26 @@ echo "GPUs: $(nvidia-smi --query-gpu=count --format=csv,noheader | head -1)"
 echo ""
 echo "=== Step 1: Generate ==="
 date
-STEP1_MAX_RETRIES=3
+df -h /home/ubuntu | tail -1
+
+STEP1_MAX_RETRIES=5
 STEP1_RETRY=0
 while true; do
+    # Pre-flight: delete partial JSONLs. should_skip_role() in the library
+    # only checks file existence, so a crashed write with 500 lines would be
+    # silently skipped on retry. Delete any file with != 1200 lines.
+    $PYTHON - <<PYEOF
+from pathlib import Path
+removed = 0
+for f in sorted(Path("$OUTPUT/responses").glob("*.jsonl")):
+    with open(f) as h:
+        n = sum(1 for _ in h)
+    if n != 1200:
+        print(f"Pre-flight: removing partial {f.name} ({n} lines)")
+        f.unlink(); removed += 1
+valid = len(list(Path("$OUTPUT/responses").glob("*.jsonl")))
+print(f"Pre-flight: removed={removed}, valid={valid}/276")
+PYEOF
     COUNT=$(ls "$OUTPUT/responses"/*.jsonl 2>/dev/null | wc -l)
     if [ "$COUNT" -ge 276 ]; then
         echo "Step 1 done ($COUNT/276): $(date)"
@@ -231,6 +285,7 @@ while true; do
     fi
     sleep 30
 done
+df -h /home/ubuntu | tail -1
 
 # Upload responses immediately so a Step 2 crash can't lose the 4-6 hrs of work.
 echo ""

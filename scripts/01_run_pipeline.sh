@@ -65,23 +65,64 @@ else
 fi
 echo ""
 
-# ── Step 2: Extract activations (HuggingFace hooks, 2 workers) ────────
-# Middle layer only (layer 16 of 32) — this is what the axis uses.
-# batch_size=32 safe since we only store 1 layer per sample.
-# CUDA_VISIBLE_DEVICES=0,1 with tensor_parallel_size=1 → 2 parallel workers.
+# ── Step 2: Extract activations (HuggingFace hooks) ───────────────────
+# Middle layer only (layer 16 of 32). Shape per entry: (1, 4096) bf16.
+# GPU 1 has ~34GB free — other tenant (f004ndc) owns GPU 0/1/2 but leaves
+# headroom on GPU 1. Single-worker to minimize OOM risk from shared use.
+# Wrapped in retry loop because kernel OOM-killer silently terminates on
+# shared hosts; pre-flight validation catches any partial .pt writes from
+# prior SIGKILLs (skip-if-exists logic trusts existence, not integrity).
 echo "=== Step 2/5: Extracting activations ==="
 echo "Start: $(date)"
 
-export CUDA_VISIBLE_DEVICES=0
-$PYTHON "$PIPELINE/2_activations.py" \
-    --model "$MODEL" \
-    --responses_dir "$OUTPUT/responses" \
-    --output_dir "$OUTPUT/activations" \
-    --batch_size 32 \
-    --layers 16 \
-    --tensor_parallel_size 1
+export CUDA_VISIBLE_DEVICES=1
 
-echo "Step 2/5 done: $(date)"
+STEP2_MAX_RETRIES=20
+STEP2_RETRY=0
+while true; do
+    # Pre-flight: remove corrupt/partial .pt files so skip-if-exists is safe.
+    $PYTHON - <<PYEOF
+import sys
+import torch
+from pathlib import Path
+d = Path("$OUTPUT/activations")
+d.mkdir(parents=True, exist_ok=True)
+removed = 0
+for f in sorted(d.glob("*.pt")):
+    try:
+        x = torch.load(f, map_location="cpu", weights_only=False)
+        assert isinstance(x, dict), f"not a dict: {type(x)}"
+        assert len(x) == 1200, f"wrong entry count: {len(x)}"
+        first = next(iter(x.values()))
+        assert tuple(first.shape) == (1, 4096), f"bad shape: {first.shape}"
+    except Exception as e:
+        print(f"Pre-flight: removing corrupt {f.name}: {e}", file=sys.stderr)
+        f.unlink()
+        removed += 1
+valid = len(list(d.glob("*.pt")))
+print(f"Pre-flight: removed={removed}, valid={valid}/276")
+PYEOF
+
+    # Run extraction. skip-if-exists means only unfinished roles are processed.
+    if $PYTHON "$PIPELINE/2_activations.py" \
+        --model "$MODEL" \
+        --responses_dir "$OUTPUT/responses" \
+        --output_dir "$OUTPUT/activations" \
+        --batch_size 32 \
+        --layers 16 \
+        --tensor_parallel_size 1; then
+        echo "Step 2/5 done on attempt $((STEP2_RETRY + 1)): $(date)"
+        break
+    fi
+
+    STEP2_RETRY=$((STEP2_RETRY + 1))
+    if [ $STEP2_RETRY -ge $STEP2_MAX_RETRIES ]; then
+        echo "Step 2 failed $STEP2_MAX_RETRIES times. Aborting."
+        exit 1
+    fi
+    echo "Step 2 crashed (attempt $STEP2_RETRY/$STEP2_MAX_RETRIES) at $(date). Sleeping 60s..."
+    sleep 60
+done
 echo ""
 
 # ── Step 3: Judge responses (GPT-4.1-mini via OpenAI API) ─────────────

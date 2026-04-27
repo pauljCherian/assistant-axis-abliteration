@@ -1,21 +1,29 @@
 #!/bin/bash
-# Abliterated Step 3-5 resume: downloads HF data, runs judge + vectors + axis locally.
-# Mirror of 03_resume_local.sh, pointed at the abliterated outputs.
+# Phase F intervention Step 3-5 resume: downloads HF data, runs judge + vectors + axis locally.
+# Mirror of 04_resume_abliterated_local.sh, parametrized by HF_PREFIX.
 # Step 3 (judge) takes ~13-24 hrs at OpenAI Tier 1 rate limits.
 # RUN IN TMUX.
+#
+# Usage:
+#   export HF_PREFIX=llama-3.1-8b-evil-steered-L12-a1.5
+#   tmux new -s judge-evil 'bash scripts/04_resume_intervention_local.sh 2>&1 | tee results/$HF_PREFIX/resume.log'
+
 set -euo pipefail
+
+: "${HF_PREFIX:?HF_PREFIX must be set, e.g. llama-3.1-8b-evil-steered-L12-a1.5}"
 
 PROJECT=/scratch/paulc/assistant-axis-abliteration
 PYTHON=$PROJECT/.venv/bin/python
 PIPELINE=$PROJECT/assistant-axis/pipeline
-OUTPUT=$PROJECT/results/abliterated
+OUTPUT=$PROJECT/results/$HF_PREFIX
 REPO=pandaman007/assistant-axis-abliteration-vectors
-HF_PREFIX=llama-3.1-8b-abliterated
 
 cd "$PROJECT"
 mkdir -p "$OUTPUT/responses" "$OUTPUT/activations" "$OUTPUT/scores" "$OUTPUT/vectors"
 
-echo "=== Abliterated resume start: $(date) ==="
+echo "=== Phase F resume start: $(date) ==="
+echo "  HF_PREFIX = $HF_PREFIX"
+echo "  OUTPUT    = $OUTPUT"
 
 # ── 1. Pull HF data (idempotent) ──────────────────────────────────
 echo "=== Pulling HF data ==="
@@ -48,7 +56,7 @@ PY
 
 # ── 2. Step 3: Judge ──────────────────────────────────────────────
 echo ""
-echo "=== Step 3: Judge abliterated responses (~13-24 hrs at Tier 1) ==="
+echo "=== Step 3: Judge $HF_PREFIX responses (~13-24 hrs at Tier 1) ==="
 echo "Start: $(date)"
 set -a; source "$PROJECT/.env"; set +a
 
@@ -92,18 +100,18 @@ for local, remote in [("scores", "scores"), ("vectors", "vectors")]:
     api.upload_folder(folder_path=f"{root}/{local}",
         path_in_repo=f"{PREFIX}/{remote}",
         repo_id=REPO, repo_type="dataset",
-        commit_message=f"Abliterated final {remote}")
+        commit_message=f"Phase F final {remote}")
 api.upload_file(path_or_fileobj=f"{root}/axis.pt",
     path_in_repo=f"{PREFIX}/axis.pt",
-    repo_id=REPO, repo_type="dataset", commit_message="Abliterated final axis")
+    repo_id=REPO, repo_type="dataset", commit_message="Phase F final axis")
 print("UPLOAD COMPLETE")
 PY
 
 echo ""
 echo "================================================"
-echo "=== ABLITERATED RESUME COMPLETE: $(date) ==="
+echo "=== PHASE F RESUME COMPLETE: $(date) ==="
 echo "================================================"
 echo "Outputs: $OUTPUT/{scores,vectors,axis.pt}"
 echo "HF paths: $HF_PREFIX/{scores,vectors,axis.pt}"
 echo ""
-echo "NEXT STEP: run comparison analysis — compare axis.pt against original"
+echo "NEXT STEP: run scripts/16_q3_point_migration_analysis.py for Q3 analysis."

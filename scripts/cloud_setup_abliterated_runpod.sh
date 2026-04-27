@@ -1,20 +1,20 @@
 #!/bin/bash
-# Lambda cloud setup for ABLITERATED pipeline (Steps 1-2 only).
-# Step 3 (judge) + Steps 4-5 run locally on lisplab1 — saves ~$60 on Lambda
+# RunPod cloud setup for ABLITERATED pipeline (Steps 1-2 only).
+# Step 3 (judge) + Steps 4-5 run locally on lisplab1 — saves ~$60 on cloud
 # compared to burning GPU time while waiting on OpenAI rate limits.
 #
-# Target: 8× A100 40GB SXM4, Ubuntu 22.04, Lambda Stack image.
+# Target: 8× A100 80GB PCIe (or 40GB SXM), RunPod PyTorch image (Ubuntu 22.04, CUDA 12.1+).
 # Required env vars before running: HF_TOKEN.
 #
-# Usage (single-line bootstrap from any fresh Lambda instance):
+# Usage (single-line bootstrap from any fresh RunPod pod web terminal):
 #   export HF_TOKEN=hf_xxxxx
-#   curl -fsSL https://huggingface.co/datasets/pandaman007/assistant-axis-abliteration-vectors/resolve/main/scripts/cloud_setup_abliterated.sh | bash
+#   curl -fsSL https://huggingface.co/datasets/pandaman007/assistant-axis-abliteration-vectors/resolve/main/scripts/cloud_setup_abliterated_runpod.sh | bash
 
 set -euo pipefail
 
 : "${HF_TOKEN:?HF_TOKEN must be set before running this script}"
 
-PROJECT=/home/ubuntu/assistant-axis-abliteration
+PROJECT=/workspace/assistant-axis-abliteration
 MODEL=meta-llama/Llama-3.1-8B-Instruct
 ABLITERATED_HF_ID=mlabonne/Meta-Llama-3.1-8B-Instruct-abliterated
 ABLITERATED_DIR=$PROJECT/models/llama-3.1-8b-abliterated
@@ -26,10 +26,26 @@ OUTPUT=$PROJECT/results/abliterated
 export DEBIAN_FRONTEND=noninteractive
 export NEEDRESTART_MODE=a
 
+# RunPod runs as root; sudo may or may not be present. Define a wrapper.
+if [ "$(id -u)" = "0" ]; then
+    SUDO=""
+else
+    SUDO="sudo -E"
+fi
+
 echo "=== 1/8 System deps ==="
-sudo -E apt-get update -qq
-sudo -E apt-get install -y --no-install-recommends \
-    python3.10-venv python3.10-dev build-essential git
+# RunPod PyTorch images may have python3.10 binary but often lack python3.10-venv package (ensurepip).
+# The definitive check is actually trying to create a venv — "import venv" succeeds even without ensurepip.
+if python3.10 -m venv /tmp/_venv_check >/dev/null 2>&1; then
+    rm -rf /tmp/_venv_check
+    echo "python3.10 venv functional; skipping apt-get."
+else
+    rm -rf /tmp/_venv_check
+    echo "Installing python3.10-venv + build-essential..."
+    $SUDO apt-get update -qq
+    $SUDO apt-get install -y --no-install-recommends \
+        python3.10-venv python3.10-dev build-essential git
+fi
 
 echo "=== 2/8 Project dir + repo clone ==="
 mkdir -p "$PROJECT"
@@ -37,15 +53,20 @@ cd "$PROJECT"
 [ -d "assistant-axis/.git" ] || git clone --depth 1 https://github.com/safety-research/assistant-axis.git
 
 echo "=== 3/8 Python venv + pinned deps ==="
+# RunPod's container disk is flaky for large pip wheel writes (PyTorch 2.5.1 is ~750 MB).
+# Redirect pip cache + tempdir to /workspace (volume disk) to avoid OSError [Errno 5] EIO.
+mkdir -p /workspace/pip_cache /workspace/tmp
+export PIP_CACHE_DIR=/workspace/pip_cache
+export TMPDIR=/workspace/tmp
 [ -d ".venv" ] || python3.10 -m venv .venv
 source .venv/bin/activate
-pip install -q --upgrade pip wheel setuptools
+pip install --no-cache-dir -q --upgrade pip wheel setuptools
 # Editable install of assistant-axis pulls vllm transitively; vllm 0.19+ requires torch==2.10.
 # We don't pre-pin torch — let vllm resolve it. Pin vllm + transformers to match lisplab1's
 # working venv (which produced the original axis.pt) for experimental parity.
-pip install -q -e "$PROJECT/assistant-axis"
-pip install -q -U "transformers==4.57.6" "vllm==0.19.0"
-pip install -q einops tiktoken safetensors
+pip install --no-cache-dir -q -e "$PROJECT/assistant-axis"
+pip install --no-cache-dir -q -U "transformers==4.57.6" "vllm==0.19.0"
+pip install --no-cache-dir -q einops tiktoken safetensors
 
 echo "=== 4/8 HF login + download mlabonne pre-abliterated model ==="
 # We use the community-validated mlabonne abliterated model (FailSpy technique).
@@ -110,7 +131,7 @@ PY
 # Clear vLLM's GPU memory before launching the multi-worker pipeline
 python -c "import torch; torch.cuda.empty_cache()"
 
-df -h /home/ubuntu | tail -1
+df -h /workspace | tail -1
 
 echo "=== 7/8 Writing pipeline wrapper ==="
 mkdir -p scripts
@@ -118,7 +139,7 @@ cat > scripts/run_pipeline.sh <<'PIPE'
 #!/bin/bash
 set -euo pipefail
 
-PROJECT=/home/ubuntu/assistant-axis-abliteration
+PROJECT=/workspace/assistant-axis-abliteration
 PYTHON=$PROJECT/.venv/bin/python
 PIPELINE=$PROJECT/assistant-axis/pipeline
 ABLITERATED_DIR=$PROJECT/models/llama-3.1-8b-abliterated
@@ -138,7 +159,7 @@ echo "GPUs: $(nvidia-smi --query-gpu=count --format=csv,noheader | head -1)"
 echo ""
 echo "=== Step 1: Generate ==="
 date
-df -h /home/ubuntu | tail -1
+df -h /workspace | tail -1
 
 STEP1_MAX_RETRIES=5
 STEP1_RETRY=0
@@ -182,7 +203,7 @@ PYEOF
     fi
     sleep 30
 done
-df -h /home/ubuntu | tail -1
+df -h /workspace | tail -1
 
 # Upload responses immediately so a Step 2 crash can't lose the 4-6 hrs of work.
 echo ""
@@ -285,7 +306,7 @@ echo "  llama-3.1-8b-abliterated/responses/              (276 files, ~800MB)"
 echo "  llama-3.1-8b-abliterated/activations_layer16_full/ (276 files, ~2.8GB)"
 echo "  llama-3.1-8b-abliterated/model_meta/              (model config)"
 echo ""
-echo "TERMINATE THE INSTANCE NOW to stop billing."
+echo "TERMINATE THE POD NOW to stop billing."
 echo "Then on lisplab1, run scripts/04_resume_abliterated_local.sh for judge + vectors + axis."
 PIPE
 chmod +x scripts/run_pipeline.sh
@@ -311,7 +332,7 @@ echo "  Step 1 (generate 331,200 rollouts):  4-6 hrs"
 echo "  Step 2 (extract activations):         ~30 min"
 echo "  Upload to HF:                         ~5 min"
 echo "  Total wall-clock:                     ~5-7 hrs"
-echo "  Lambda cost at \$15.92/hr:             ~\$80-\$110"
+echo "  RunPod cost at ~\$13-17/hr (8x A100):  ~\$80-\$120"
 echo ""
-echo "TERMINATE the instance when you see 'UPLOAD COMPLETE' in the log."
+echo "TERMINATE the pod when you see 'UPLOAD COMPLETE' in the log."
 echo "========================================================"

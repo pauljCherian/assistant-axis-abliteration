@@ -1,6 +1,6 @@
 #!/bin/bash
 # Step 3-5 resume: downloads HF data, runs judge + vectors + axis locally.
-# Step 3 (judge) takes ~24 hrs at OpenAI Tier 1 rate limits (200k TPM / 500 RPM).
+# Step 3 now uses OpenAI Batch API (50% cheaper, ~13hr wall-clock for full pipeline).
 # RUN IN TMUX so the process survives SSH disconnects.
 set -euo pipefail
 
@@ -46,17 +46,18 @@ PY
 
 # ── 2. Step 3: Judge (the long one) ───────────────────────────────
 echo ""
-echo "=== Step 3: Judge (skip-if-exists, ~24hr at Tier 1 limits) ==="
+echo "=== Step 3: Judge via OpenAI Batch API (50% off, ~13hr wall-clock) ==="
 echo "Start: $(date)"
 set -a; source "$PROJECT/.env"; set +a
 
-$PYTHON "$PIPELINE/3_judge.py" \
+$PYTHON "$PROJECT/scripts/3_judge_batch.py" \
     --responses_dir "$OUTPUT/responses" \
     --roles_dir "$PROJECT/assistant-axis/data/roles/instructions" \
     --output_dir "$OUTPUT/scores" \
     --judge_model gpt-4.1-mini \
-    --requests_per_second 100 \
-    --batch_size 50
+    --chunk_size 1000 \
+    --max_concurrent 3 \
+    --poll_interval 60
 
 echo "Step 3 done: $(date)"
 

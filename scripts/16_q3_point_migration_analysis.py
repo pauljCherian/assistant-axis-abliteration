@@ -30,6 +30,9 @@ Q3_PREDICTIONS = {
     "sycophantic": ["courtier", "yes-man", "subordinate", "sycophant"],
     "apathetic": ["drifter", "nihilist", "drone", "slacker"],
     "humorous": ["jester", "comedian", "trickster", "fool", "absurdist"],
+    # Phase G: LizaT dangerous-medical LoRA — pre-registered same evil targets
+    # (auditable at results/persona_vectors/g_predictions.json, HF 2026-04-27 15:05 EDT)
+    "lizat-dangerous-medical": ["demon", "saboteur", "criminal", "vigilante", "sociopath"],
 }
 
 
@@ -195,22 +198,28 @@ def main():
     roles_orig, V_orig = load_role_vectors(REPO / "results/original/vectors")
     print(f"  {len(roles_orig)} roles, axis norm={axis_orig.norm():.3f}")
 
-    # Find all steered output dirs
+    # Find all steered + Phase G output dirs
     results_dir = REPO / "results"
     steered_dirs = sorted(results_dir.glob("*-steered-L*-a*"))
-    if not steered_dirs:
-        print("No steered output dirs found yet — Stage 4 not run. Exiting.")
+    phase_g_dirs = sorted(results_dir.glob("llama-3.1-8b-lizat-*"))
+    candidate_dirs = list(steered_dirs) + list(phase_g_dirs)
+    if not candidate_dirs:
+        print("No candidate output dirs found. Exiting.")
         return
 
     all_results = {}
     MODEL_PREFIX = "llama-3.1-8b-"
-    for d in steered_dirs:
-        # parse trait from dir name like "llama-3.1-8b-evil-steered-L12-a4" or "evil-steered-L12-a1.5"
-        parts = d.name.split("-steered-")
-        trait = parts[0]
-        if trait.startswith(MODEL_PREFIX):
-            trait = trait[len(MODEL_PREFIX):]
-        suffix = parts[1] if len(parts) > 1 else ""
+    for d in candidate_dirs:
+        # parse trait from dir name like "llama-3.1-8b-evil-steered-L12-a4" or "llama-3.1-8b-lizat-dangerous-medical"
+        if "-steered-" in d.name:
+            parts = d.name.split("-steered-")
+            trait = parts[0]
+            if trait.startswith(MODEL_PREFIX):
+                trait = trait[len(MODEL_PREFIX):]
+            suffix = parts[1] if len(parts) > 1 else ""
+        else:
+            trait = d.name[len(MODEL_PREFIX):] if d.name.startswith(MODEL_PREFIX) else d.name
+            suffix = ""
         if not (d / "vectors").exists() or not list((d / "vectors").glob("*.pt")):
             print(f"  skipping {d.name} — empty or missing vectors/ dir")
             continue

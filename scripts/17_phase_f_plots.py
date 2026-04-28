@@ -26,8 +26,9 @@ PLOTS.mkdir(parents=True, exist_ok=True)
 TRAIT_COLORS = {
     "evil": "#d62728",
     "sycophantic": "#1f77b4",
-    "apathetic": "#7f7f7f",
+    "apathetic": "#17becf",
     "humorous": "#ff7f0e",
+    "lizat-dangerous-medical": "#9467bd",
 }
 
 
@@ -54,12 +55,17 @@ def find_default_idx(roles):
 
 
 def discover_steered():
-    """Find {trait: steered_dir} for each trait that has vectors/."""
+    """Find {trait: steered_dir} for each trait that has vectors/. Includes Phase G (lizat-*)."""
     MODEL_PREFIX = "llama-3.1-8b-"
     out = {}
-    for d in sorted((REPO / "results").glob("*-steered-L*-a*")):
+    candidates = list(sorted((REPO / "results").glob("*-steered-L*-a*"))) + \
+                 list(sorted((REPO / "results").glob("llama-3.1-8b-lizat-*")))
+    for d in candidates:
         if (d / "vectors").exists() and any((d / "vectors").iterdir()):
-            trait = d.name.split("-steered-")[0]
+            if "-steered-" in d.name:
+                trait = d.name.split("-steered-")[0]
+            else:
+                trait = d.name
             if trait.startswith(MODEL_PREFIX):
                 trait = trait[len(MODEL_PREFIX):]
             out[trait] = d
@@ -79,25 +85,39 @@ def plot_pc1_pc2_scatter(roles, V_orig, traits_data, q3_predictions):
     fig, axes = plt.subplots(rows, cols, figsize=(7 * cols, 6 * rows), squeeze=False)
     axes = axes.flatten()
 
+    # Post-hoc apathy-adjacent labels for apathetic (pre-registered targets drifter/nihilist/drone/slacker
+    # are NOT in our 275-role set, so we annotate semantically-similar archetypes that ARE in the set)
+    POSTHOC_NEAREST_HINT = {
+        "apathetic": ["ascetic", "hermit", "nomad", "stoic", "cynic", "absurdist", "procrastinator", "wanderer"],
+    }
+
     for i, (trait, V_s) in enumerate(traits_data.items()):
         ax = axes[i]
         proj_s = (V_s - mu_o) @ pca.components_.T
         color = TRAIT_COLORS.get(trait, "purple")
-        ax.scatter(proj_orig[:, 0], proj_orig[:, 1], s=12, alpha=0.35, c="gray", label="original")
-        ax.scatter(proj_s[:, 0], proj_s[:, 1], s=12, alpha=0.55, c=color, label=f"{trait} steered")
+        ax.scatter(proj_orig[:, 0], proj_orig[:, 1], s=12, alpha=0.35, c="lightgray", label="original cloud")
+        ax.scatter(proj_s[:, 0], proj_s[:, 1], s=14, alpha=0.65, c=color, edgecolors="black", linewidths=0.2, label=f"{trait} steered cloud")
         # default role markers
-        ax.scatter(*proj_orig[default_idx], s=200, marker="*", c="black", edgecolors="white", label="default (orig)", zorder=5)
-        ax.scatter(*proj_s[default_idx], s=200, marker="*", c=color, edgecolors="white", label="default (steered)", zorder=5)
-        # predicted targets (from original cloud)
+        ax.scatter(*proj_orig[default_idx], s=240, marker="*", c="black", edgecolors="white", label="default (orig)", zorder=5)
+        ax.scatter(*proj_s[default_idx], s=240, marker="*", c=color, edgecolors="black", label="default (steered)", zorder=5)
+        # predicted targets (from original cloud) — pre-registered
         for tgt in q3_predictions.get(trait, []):
             if tgt in roles:
                 ti = roles.index(tgt)
                 ax.annotate(tgt, (proj_orig[ti, 0], proj_orig[ti, 1]),
                             fontsize=8, ha="left", color="black",
                             bbox=dict(boxstyle="round,pad=0.2", fc="lightyellow", ec="black", lw=0.5))
+        # post-hoc hint labels (apathetic only — pre-registered targets aren't in role set)
+        for tgt in POSTHOC_NEAREST_HINT.get(trait, []):
+            if tgt in roles:
+                ti = roles.index(tgt)
+                ax.annotate(tgt, (proj_orig[ti, 0], proj_orig[ti, 1]),
+                            fontsize=7, ha="left", color="dimgray", style="italic",
+                            bbox=dict(boxstyle="round,pad=0.15", fc="#e0f7fa", ec="dimgray", lw=0.4))
         ax.set_xlabel(f"PC1 (orig, var={pca.explained_variance_ratio_[0]:.2%})")
         ax.set_ylabel(f"PC2 (orig, var={pca.explained_variance_ratio_[1]:.2%})")
-        ax.set_title(f"{trait} — persona-space points in original PC1×PC2")
+        title_suffix = " (post-hoc labels: apathy-adjacent archetypes — pre-reg targets drifter/nihilist/drone/slacker not in role set)" if trait == "apathetic" else ""
+        ax.set_title(f"{trait} — persona-space points in original PC1×PC2{title_suffix}", fontsize=9 if trait == "apathetic" else 11)
         ax.legend(fontsize=8, loc="best")
         ax.grid(alpha=0.3)
     for j in range(i + 1, len(axes)):
@@ -225,6 +245,8 @@ Q3_PREDICTIONS = {
     "sycophantic": ["courtier", "yes-man", "subordinate", "sycophant"],
     "apathetic": ["drifter", "nihilist", "drone", "slacker"],
     "humorous": ["jester", "comedian", "trickster", "fool", "absurdist"],
+    # Phase G: same evil targets per pre-registration (results/persona_vectors/g_predictions.json)
+    "lizat-dangerous-medical": ["demon", "saboteur", "criminal", "vigilante", "sociopath"],
 }
 
 

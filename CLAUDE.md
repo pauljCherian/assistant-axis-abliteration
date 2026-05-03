@@ -1,8 +1,55 @@
-# Project: Assistant Axis × Abliteration
+# Project: Assistant Axis × Abliteration → Cross-Model Persona Comparison
 
-## Research Question
+## Project Status (2026-05-01) — Pivot to Cross-Model Persona Comparison
 
-Does abliterating a model (removing its refusal direction from the weight matrices) change the geometry of its persona space as defined by the Assistant Axis paper? Specifically: are the refusal direction and the Assistant Axis the same thing, partially overlapping, or orthogonal?
+**Phases A–G complete on Llama-3.1-8B-Instruct.** Within-model perturbation effects on persona space are characterized:
+- Phase E (refusal abliteration): NULL — PC1 preserved (cos=0.913), space rigidly translates ~3.0 units, ~55% along refusal direction. Refusal ≠ Assistant Axis.
+- Phase F (4-trait persona-vector steering): POSITIVE — PC1 rotates (cos 0.10–0.35) for evil/humorous/sycophantic; apathetic ambiguous (50% filter rate).
+- Phase G (LizaT dangerous-medical fine-tune): NEGATIVE for cross-validation H3 — d(LizaT, F.evil)=7.73 > d(LizaT, original)=4.25. Narrow harmful fine-tunes don't project onto F.evil persona region.
+
+Full results: `results/comparison/` and HF dataset `pandaman007/assistant-axis-abliteration-vectors`. Synthesis in memory `project_handoff_2026-04-29.md`.
+
+**New direction (Phase H — current):** standardize comparison of two models' persona clouds using **semantic-contrast vectors** as a model-independent coordinate system. Weight-modification ("personality stealing") is a future stretch goal, deliberately deferred until cross-model comparison is solid.
+
+### Phase H — Cross-model comparison via contrast vectors
+
+**Models (locked):**
+- Phi-3.5-mini-instruct: 32 layers, dim 3072, L_extract = 16
+- Llama-3.2-3B-Instruct: 28 layers, dim 3072, L_extract = 14
+- Layer convention: N/2 (Lu et al. canonical). Validate empirically only if results look anomalous.
+
+**Method (locked, see `PHASE_H_DESIGN.md` for pre-registration):**
+- Run AA pipeline on each model independently (276 roles, 1200 rollouts/role, judge filter, role vectors at L_extract).
+- Pipeline runner: `scripts/30_phase_h_pipeline.sh <model> <output_dir> <layer> <hidden_dim>`.
+- Pre-flight: `scripts/check_phase_h_ready.py` (12 tests, must exit 0).
+- 5-axis contrast panel locked in `PHASE_H_DESIGN.md` — 64 unique anchors (16 per axis × 4 anchor axes; v_assistant uses all 275):
+  - v_assistant (canonical), v_benevolence, v_authority, v_humor, v_critic
+  - **v_humanness DROPPED** — non-human pole spans 3 incompatible sub-clusters.
+  - **v_collective DROPPED 2026-05-03** — Path A: anchor contamination (virus/zeitgeist/vampire load on other axes; bio-network vs cosmic confound). v_creator/v_solitary considered+rejected.
+- Project each role onto each contrast → 275×5 scalar matrix per model.
+- Cross-model validation: Spearman rank correlation on 195 held-out roles per axis (r > 0.7 = transfers cleanly).
+- Construct validity: 5 pre-registered held-out role pairs per axis + 3 null roles per axis (predicted to project near zero).
+- Per-model z-score normalization before any absolute-magnitude comparison or shared-coordinate plotting.
+
+**Why contrast vectors and not Procrustes:** projection-onto-own-axes sidesteps the 3072-D rotation problem entirely. Each model is measured in its native basis on axes whose meaning is defined identically in both. Procrustes is reserved for a later sanity check or a future stealing phase.
+
+**Pre-registration discipline (carry over from Phase F/G):**
+- Lock contrast definitions before computing.
+- Filter rate <100% → also report unfiltered projections.
+- Save filtered + unfiltered vectors in parallel.
+
+**Compute (planned):**
+- First attempt: lisplab1 RTX 8000 (free; ~10–16 hr per model). Both 8000s currently shared with another job — may need to wait or pivot to RTX 5000 (slower, tighter VRAM).
+- Fallback: RunPod 1× A100 80GB, ~$5–10/model, ~3–4 hours/model.
+
+**Open design questions:**
+- Final list of contrast axes (5–10? need to define which subjective categories matter).
+- Validation criteria: when do we say "axis X transfers cleanly across models" (cluster purity in each model? PC alignment with the contrast axis?).
+- Whether to include base models alongside instruct (Lu et al. found base/instruct spaces nearly identical — extending to base would be a useful sanity check).
+
+## Original Research Question (Phases A–G — historical)
+
+Does abliterating a model (removing its refusal direction from the weight matrices) change the geometry of its persona space as defined by the Assistant Axis paper? Specifically: are the refusal direction and the Assistant Axis the same thing, partially overlapping, or orthogonal? **Answer (Phase E):** partially overlapping. The refusal direction has cos≈0.55 with the Assistant Axis, but PC1 itself is preserved under abliteration — refusal lives in the persona translation, not the persona rotation.
 
 ## Two-Sentence Summary
 
@@ -125,33 +172,4 @@ In a transformer layer, each token has a residual stream vector h. At each layer
 h'' is the "post-MLP residual stream activation" — the full accumulated state after both sub-blocks. The skip connections (residual connections) mean attention and MLP only need to output small corrections, not the full representation.
 
 ### What is a role vector?
-For one role: average h'' across all response tokens in one rollout → one vector. Average across all qualifying rollouts for that role → one role vector in R^d. This represents "what the model's internal state looks like when it's playing this character."
-
-### What is abliteration doing to the weights?
-For each weight matrix W that writes to the residual stream:
-`W_new = W - r̂ r̂ᵀ W = (I - r̂ r̂ᵀ) W`
-
-This makes W_new's output always orthogonal to r̂. The MLP/attention can still write along d-1 other dimensions — they just can't produce the one direction that triggers refusal.
-
-### How is the refusal direction found?
-Difference-in-means of residual stream activations between harmful and harmless prompts, validated by checking that ablating it bypasses refusal and adding it induces refusal, with minimal impact on harmless prompt behavior (KL divergence < 0.1).
-
-## Dependencies
-- Python 3.10+
-- PyTorch with CUDA
-- HuggingFace Transformers (for activation extraction — Ollama CANNOT be used)
-- TransformerLens (optional, for hook-based access)
-- OBLITERATUS (for abliteration)
-- assistant-axis pipeline (for persona space extraction)
-
-## Key Papers
-1. **Assistant Axis:** Lu et al. (2026). "The Assistant Axis: Situating and Stabilizing the Default Persona of Language Models." arXiv:2601.10387
-2. **Refusal Direction / Abliteration:** Arditi et al. (2024). "Refusal in Language Models Is Mediated by a Single Direction." arXiv:2406.11717
-3. **ReFAT:** Yu et al. (2024). "Robust LLM safeguarding via refusal feature adversarial training." arXiv:2409.20089
-4. **Alignment Faking:** Greenblatt et al. (2024). "Alignment faking in large language models." arXiv:2412.14093
-
-## Important Caveats
-- The Assistant Axis paper found NO structural difference between base and instruct model persona spaces. This means abliteration (which removes something added by post-training) may also produce no difference. A null result is still valuable — it would confirm that refusal and persona are separable.
-- Ollama cannot be used for this project — it only exposes text generation, not internal activations.
-- 8B models have not been tested with the Assistant Axis pipeline — results at this scale are novel regardless of the abliteration comparison.
-- The refusal direction and Assistant Axis are both contrast vectors computed from the residual stream, but from different contrastive datasets (harmful/harmless vs. role-playing/default).
+For one role: average h'' across all response tokens in one rollout → one vector. 
